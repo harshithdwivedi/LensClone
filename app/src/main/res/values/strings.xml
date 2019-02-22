@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Google Lens app</string>
+    <string name="detected_items">Detected Items</string>
+</resources>
