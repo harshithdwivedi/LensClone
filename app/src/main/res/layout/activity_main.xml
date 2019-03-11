@@ -5,6 +5,15 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
+    <TextView
+        android:id="@+id/tvAbout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#fff"
+        android:gravity="center"
+        android:textSize="32sp"
+        android:text="Google Lens Clone\nPlace the Camera in front of an object and press the button to get started!"/>
+
     <ImageView
         android:id="@+id/ivPreview"
         android:layout_width="match_parent"

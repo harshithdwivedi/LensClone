@@ -16,30 +16,31 @@
 package app.harshit.lensclone
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.media.Image
 import android.media.ImageReader
+import android.net.ConnectivityManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.support.design.widget.BottomSheetBehavior
 import android.support.v7.app.AppCompatActivity
+import android.support.v7.widget.GridLayoutManager
 import android.support.v7.widget.LinearLayoutManager
 import android.util.Log
 import android.view.KeyEvent
 import android.view.Surface
 import android.view.View
-
-import com.google.android.things.contrib.driver.button.Button
+import android.view.View.GONE
 import com.google.android.things.contrib.driver.button.ButtonInputDriver
 import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.ml.vision.label.FirebaseVisionCloudImageLabelerOptions
 import com.google.firebase.ml.vision.label.FirebaseVisionImageLabel
+import com.google.firebase.ml.vision.label.FirebaseVisionOnDeviceImageLabelerOptions
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.bottom_sheet.*
-
-
 import java.io.IOException
 
 /**
@@ -97,7 +98,7 @@ class MainActivity : AppCompatActivity() {
         sheetBehavior.isHideable = true
         sheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
 
-        rvLabel.layoutManager = LinearLayoutManager(this)
+        rvLabel.layoutManager = GridLayoutManager(this,5)
         rvLabel.adapter = imageLabelAdapter
 
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -137,11 +138,21 @@ class MainActivity : AppCompatActivity() {
             ivPreview.setImageBitmap(debugBitmap)
         }
 
-        val options = FirebaseVisionCloudImageLabelerOptions.Builder()
-                .setConfidenceThreshold(0.7f)
+        val cloudOptions = FirebaseVisionCloudImageLabelerOptions.Builder()
+                .setConfidenceThreshold(0.6f)
                 .build()
-        val labeler = FirebaseVision.getInstance()
-                .getCloudImageLabeler(options)
+
+        val onDeviceOptions = FirebaseVisionOnDeviceImageLabelerOptions.Builder()
+                .setConfidenceThreshold(0.6f)
+                .build()
+
+        val labeler = if (isNetwork(this)) {
+            FirebaseVision.getInstance()
+                    .getCloudImageLabeler(cloudOptions)
+        } else {
+            FirebaseVision.getInstance()
+                    .getOnDeviceImageLabeler(onDeviceOptions)
+        }
 
         labeler.processImage(firebaseVisionImage)
                 .addOnSuccessListener {
@@ -162,14 +173,13 @@ class MainActivity : AppCompatActivity() {
         try {
             mButtonInputDriver = ButtonInputDriver(
                     BoardDefaults.getGPIOForButton(),
-                    Button.LogicState.PRESSED_WHEN_LOW,
+                    com.google.android.things.contrib.driver.button.Button.LogicState.PRESSED_WHEN_LOW,
                     KeyEvent.KEYCODE_ENTER)
             mButtonInputDriver!!.register()
         } catch (e: IOException) {
             mButtonInputDriver = null
             Log.w(TAG, "Could not open GPIO pins", e)
         }
-
     }
 
     override fun onDestroy() {
@@ -191,6 +201,7 @@ class MainActivity : AppCompatActivity() {
             // Doorbell rang!
             Log.d(TAG, "button pressed")
             if (!isDetecting) {
+                tvAbout.visibility = GONE
                 mCamera!!.takePicture()
                 sheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
                 progress.visibility = View.VISIBLE
@@ -203,6 +214,12 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private val TAG = "MainActivity"
+    }
+
+    internal fun isNetwork(context: Context): Boolean {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetworkInfo = connectivityManager.activeNetworkInfo
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected
     }
 
 }
